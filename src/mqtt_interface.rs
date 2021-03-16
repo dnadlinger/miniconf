@@ -201,8 +201,7 @@ where
         request_properties: &[minimq::Property],
         default_response_topic: &str,
         payload: &[u8],
-    )
-    {
+    ) {
         // Publish the response to the request over MQTT using the ResponseTopic property if
         // possible. Otherwise, default to a logging topic.
         let response_topic = if let Some(Property::ResponseTopic(topic)) = request_properties
@@ -214,11 +213,23 @@ where
             default_response_topic
         };
 
+        // Send back any correlation data with the response.
+        let response_properties = request_properties
+            .iter()
+            .find(|&prop| matches!(*prop, Property::CorrelationData(_)))
+            .map(core::slice::from_ref)
+            .unwrap_or(&[]);
+
         // Make a best-effort attempt to send the response. If we get a failure, we may have
         // disconnected or the peer provided an invalid topic to respond to. Ignore the
         // failure in these cases.
         client
-            .publish(response_topic, payload, QoS::AtMostOnce, &[])
+            .publish(
+                response_topic,
+                payload,
+                QoS::AtMostOnce,
+                response_properties,
+            )
             .ok();
     }
 
